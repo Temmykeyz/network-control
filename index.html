@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Network Control Room</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<style>
+/* One page, three stops: what needs you, your projects, the network. Works outside Claude. */
+:root{
+  --bg:#f3f4f7; --panel:#fff; --ink:#151a24; --muted:#5d6577; --line:#dde1ea;
+  --accent:#2f5bd8; --accent-ink:#fff; --soft:#eaf0ff;
+  --go:#1f8a4c; --wait:#c77700; --stop:#c8352b; --sleep:#8a90a0;
+  --display:"Bricolage Grotesque","Avenir Next",system-ui,sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#10131a;--panel:#181c26;--ink:#e9ecf3;--muted:#a2a9b8;--line:#2a3040;--accent:#7c9cff;--accent-ink:#0d1220;--soft:#1d2740;
+  --go:#4cc47f;--wait:#f0a43a;--stop:#ff6b5e;--sleep:#7a8194;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5}
+.wrap{max-width:1100px;margin:0 auto;padding:24px max(16px,env(safe-area-inset-right,0px)) 56px max(16px,env(safe-area-inset-left,0px));display:grid;gap:28px}
+.top{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.light{width:54px;height:54px;border-radius:50%;display:grid;place-items:center;font-family:var(--display);font-weight:800;font-size:24px;color:#fff;background:var(--go);flex:none}
+.light.wait{background:var(--wait)}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(24px,4.4vw,36px);line-height:1.1;margin:0;text-wrap:balance}
+.top p{margin:4px 0 0;color:var(--muted)}
+.grow{flex:1 1 300px;min-width:0}
+.small{font-size:12px;color:var(--muted)}
+h2{font-family:var(--display);font-weight:600;font-size:21px;margin:0 0 10px}
+.banner{background:var(--soft);border-radius:10px;padding:10px 14px}
+.card,.q,.p,.net{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+.qs,.tasks{display:grid;gap:12px}
+.q{border-left:4px solid var(--wait);display:grid;gap:8px}
+.q-top{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.q-top b{color:var(--ink)} .q-top a{margin-left:auto;color:var(--accent);font-weight:600;text-decoration:none}
+.q-text{font-size:16px;font-weight:500}
+.q-why{color:var(--muted);font-size:14px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{font:inherit;font-weight:500;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:9px;padding:8px 13px;cursor:pointer;min-height:40px;text-decoration:none;display:inline-flex;align-items:center}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.btn:disabled{opacity:.5;cursor:default}
+.btn:focus-visible,a:focus-visible,summary:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+input[type=text],input[type=email]{flex:1 1 220px;min-width:0;font:inherit;padding:9px 12px;border-radius:9px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.err{color:var(--stop);font-size:14px}
+.empty{background:var(--panel);border:1px dashed var(--line);border-radius:12px;padding:16px;color:var(--muted)}
+.projects{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;align-items:start}
+.p{display:grid;gap:10px;min-width:0}
+.p-head{display:flex;gap:10px;align-items:center}
+.p-head h3{font-family:var(--display);font-weight:600;font-size:19px;margin:0;flex:1;min-width:0}
+.pill{font-size:12px;font-weight:600;padding:3px 9px;border-radius:99px;color:#fff;white-space:nowrap}
+.pill.go{background:var(--go)}.pill.wait{background:var(--wait)}.pill.sleep{background:var(--sleep)}
+.next{font-size:14px} .next span{color:var(--muted)}
+details summary{cursor:pointer;font-size:14px;color:var(--accent);font-weight:500}
+.chats{display:grid;gap:2px;margin-top:6px}
+.chats a{display:grid;padding:6px 8px;border-radius:8px;color:inherit;text-decoration:none}
+.chats a:hover{background:var(--bg)} .chats small{color:var(--muted)}
+.net{display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+.stats{display:flex;gap:22px;flex-wrap:wrap;flex:1 1 320px}
+.stat b{display:block;font-family:var(--display);font-size:26px;font-variant-numeric:tabular-nums}
+.stat span{font-size:13px;color:var(--muted)}
+.task{display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.task .grow b{display:block}
+.login{max-width:440px;margin:12vh auto 0;display:grid;gap:14px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(140%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;opacity:0;transition:.25s}
+.toast.show{transform:translateX(-50%);opacity:1}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}}
+</style>
+</head>
+<body>
+<!-- ===== SETTINGS: the only lines another owner changes to reuse this page (see README) ===== -->
+<script>
+window.HUB = {
+  url: "https://uamzubizuicvnpqozlla.supabase.co",
+  key: "sb_publishable_ljpn2vfXf4rSdMWdi_kkwQ_md7e9hQR",
+  hqChat: "https://claude.ai/chat/9610d93c-0217-4f96-b931-e496e27a9d6b",
+  projects: [
+    {net:"CHESS", name:"Daily Chess", lead:["Product Manager","https://claude.ai/chat/08309133-a384-46e4-b02a-5842a8f71b7a"]},
+    {net:"MWT", name:"MWT", lead:["Website PM","https://claude.ai/chat/c19cd7c4-352e-44bf-910a-946d68afa10e"]},
+    {net:"KT", name:"Keyboard Theory", lead:["Theory site PM","https://claude.ai/chat/3ab36f1b-480b-4f0a-b18e-de40c0b9b106"]},
+    {net:"STU", name:"Study & Teaching", lead:["Study HQ","https://claude.ai/chat/a38e4c10-48c3-4f08-b6d8-95b17b742f92"]},
+    {net:"ME", name:"Me, Career & WY", lead:["Calendar + to-do manager","https://claude.ai/chat/1b0376a5-fe7e-4b8b-9725-4b0edb496580"]},
+    {net:"EPOP", name:"EPOP Choir", lead:["EPOP Ops","https://claude.ai/chat/38c6cb87-5ef3-4293-8de4-25aa4ddeab4e"]}
+  ]
+};
+</script>
+
+<div id="loginView" class="wrap" hidden>
+  <div class="login card">
+    <h1>Network Control Room</h1>
+    <p class="q-why">Sign in with your email. You'll get a link; open it on this device.</p>
+    <form id="loginForm" class="row">
+      <label for="email" class="small" style="flex-basis:100%">Email</label>
+      <input id="email" type="email" required autocomplete="email" placeholder="you@example.com">
+      <button class="btn primary" type="submit">Send link</button>
+    </form>
+    <div id="loginMsg" class="q-why"></div>
+  </div>
+</div>
+
+<div id="appView" class="wrap" hidden>
+  <header class="top">
+    <div class="light" id="light">✓</div>
+    <div class="grow">
+      <h1 id="headline">Loading…</h1>
+      <p id="subline">What needs you, your projects, and the network.</p>
+    </div>
+    <div class="row"><span class="small" id="live"></span><button class="btn" id="refresh">Refresh</button><button class="btn" id="signout">Sign out</button></div>
+  </header>
+  <div class="banner" id="banner" hidden></div>
+
+  <section><h2>1. Needs you</h2><div class="qs" id="qs"></div></section>
+
+  <section>
+    <h2>2. Your projects</h2>
+    <p class="small" style="margin:-4px 0 12px">For project work, open the project's lead chat. It runs its team.</p>
+    <div class="projects" id="projects"></div>
+  </section>
+
+  <section>
+    <h2>3. Run a task now</h2>
+    <p class="small" style="margin:-4px 0 12px">Starts a scheduled task straight away, in the cloud. A task shows "Not set up" until its run key is added once (see the guide below).</p>
+    <div class="tasks" id="tasks"></div>
+  </section>
+
+  <section>
+    <h2>4. The network</h2>
+    <div class="net">
+      <div class="stats">
+        <div class="stat"><b id="sTwin">–</b><span>messages handled for you today</span></div>
+        <div class="stat"><b id="sUnread">–</b><span>waiting for a chat to wake</span></div>
+        <div class="stat"><b id="sFlaw">–</b><span>problems being fixed</span></div>
+      </div>
+      <a class="btn primary" id="hqLink" target="_blank" rel="noopener">Talk to HQ about the network</a>
+    </div>
+  </section>
+
+  <details class="card">
+    <summary>How this works</summary>
+    <ol class="q-why">
+      <li>Answer questions here. Your answer reaches the right chat within minutes.</li>
+      <li>Each project has one lead chat. Talk to the lead; it runs its team.</li>
+      <li>HQ looks after the network itself: waking chats, fixing problems.</li>
+      <li>To make "Run now" work for a task: in the Claude app open the task, add an API trigger, copy its key, and save it in Supabase → Vault as <code>task_token_&lt;task id&gt;</code>. Only you handle the key.</li>
+    </ol>
+  </details>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(() => {
+const H = window.HUB, $ = s => document.querySelector(s);
+const el = (t,c,x) => { const e=document.createElement(t); if(c) e.className=c; if(x!=null) e.textContent=x; return e; };
+const sb = supabase.createClient(H.url, H.key, { auth: { persistSession: true, detectSessionInUrl: true, flowType: "implicit" } });
+let D = null; const pending = {};
+const hm = t => new Date(t).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+function toast(m){ const t=$("#toast"); t.textContent=m; t.classList.add("show"); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove("show"),3500); }
+function banner(t){ const b=$("#banner"); b.hidden=!t; b.textContent=t||""; }
+
+async function api(body){
+  const { data: s } = await sb.auth.getSession();
+  const tok = s && s.session && s.session.access_token;
+  if (!tok) throw Object.assign(new Error("not signed in"), {code:"not_signed_in"});
+  const r = await fetch(H.url + "/functions/v1/owner-api", { method:"POST", headers:{ "Content-Type":"application/json", "Authorization":"Bearer "+tok, "apikey":H.key }, body: JSON.stringify(body) });
+  const j = await r.json().catch(()=>({}));
+  if (!r.ok) throw Object.assign(new Error(j.error || ("HTTP "+r.status)), {code:j.error, status:r.status});
+  return j;
+}
+function nextLine(sum){ if(!sum) return null; const m = sum.match(/NEXT:\s*([\s\S]*?)(?:\s\/\s|\n|BLOCKED:|$)/); return (m?m[1]:sum.split("\n")[0]).trim().slice(0,220); }
+
+function renderProjects(){
+  const box=$("#projects"); box.replaceChildren();
+  for(const p of H.projects){
+    const a = D && D.areas ? D.areas[p.net] : null;
+    const qn = D ? D.questions.filter(q=>q.net===p.net || (p.net==="ME" && ["CAR","WY"].includes(q.net))).length : 0;
+    let k="go", w="Moving"; if(qn){k="wait"; w=qn+" for you";} else if(a && a.active48===0){k="sleep"; w="Asleep";}
+    const t=el("article","p"); const h=el("div","p-head"); h.append(el("h3",null,p.name)); if(D) h.append(el("span","pill "+k,w)); t.append(h);
+    const nx = a ? nextLine(a.summary) : null;
+    if(nx){ const n=el("div","next"); n.append(el("span",null,"Next: "), document.createTextNode(nx)); t.append(n); }
+    if(a && a.unread) t.append(el("div","small", a.unread+" unread in this project"));
+    const go=el("a","btn primary","Open lead: "+p.lead[0]); go.href=p.lead[1]; go.target="_blank"; go.rel="noopener"; t.append(go);
+    box.append(t);
+  }
+}
+function render(){
+  const qs=D.questions||[], n=qs.length;
+  $("#light").className="light"+(n?" wait":""); $("#light").textContent=n||"✓";
+  $("#headline").textContent = n ? (n===1?"1 thing needs you.":n+" things need you.") : "Nothing needs you. The network is working.";
+  $("#subline").textContent = "Updated "+hm(D.at)+"."+(D.answered_today?" "+D.answered_today+" answered today.":"");
+  $("#live").textContent = "updated "+hm(D.at);
+  const box=$("#qs"); box.replaceChildren();
+  if(!n) box.append(el("div","empty","No questions are waiting for you."));
+  qs.forEach(q=>{ const c=el("article","q"); const top=el("div","q-top"); top.append(el("b",null,q.project||""), el("span",null,q.code));
+    if(q.due){ const d=Math.round((new Date(q.due)-new Date(new Date().toDateString()))/864e5); top.append(el("span",null,d<0?"Overdue":d===0?"Due today":d===1?"Due tomorrow":"Due in "+d+" days")); }
+    if(q.url){ const a=el("a",null,"Open chat ↗"); a.href=q.url; a.target="_blank"; a.rel="noopener"; top.append(a); }
+    c.append(top, el("div","q-text",q.question)); if(q.why) c.append(el("div","q-why",q.why));
+    const area=el("div"); c.append(area); box.append(c); drawAnswer(q,area); });
+  const N=D.network||{}; $("#sTwin").textContent=N.handled_by_twins_today??"–"; $("#sUnread").textContent=N.unread_total??"–"; $("#sFlaw").textContent=N.open_flaws??"–";
+  renderProjects(); renderTasks();
+}
+function drawAnswer(q,area){
+  area.replaceChildren(); const p=pending[q.code];
+  if(p&&p.stage==="confirm"){ const r=el("div","row"); r.append(el("span",null,"Send “"+p.answer+"”?")); const y=el("button","btn primary","Yes, send it"), no=el("button","btn","Change it");
+    y.onclick=()=>send(q,p.answer,area); no.onclick=()=>{delete pending[q.code]; drawAnswer(q,area);}; r.append(y,no); area.append(r); if(p.error) area.append(el("div","err",p.error)); return; }
+  if(p&&p.stage==="sending"){ area.append(el("div","q-why","Sending…")); return; }
+  const o=el("div","row"); (q.options||[]).forEach(x=>{ const b=el("button","btn",x); b.onclick=()=>{pending[q.code]={stage:"confirm",answer:x}; drawAnswer(q,area);}; o.append(b); }); if(o.children.length) area.append(o);
+  if(q.text||!(q.options||[]).length){ const r=el("div","row"); const i=el("input"); i.type="text"; i.id="ans-"+q.code; i.maxLength=600; i.placeholder=(q.options||[]).length?"Or type your own answer":"Type your answer";
+    const g=el("button","btn","Next"); g.onclick=()=>{const v=i.value.trim(); if(!v){i.focus();return;} pending[q.code]={stage:"confirm",answer:v}; drawAnswer(q,area);}; i.addEventListener("keydown",e=>{if(e.key==="Enter") g.click();}); r.append(i,g); area.append(r); }
+}
+async function send(q,answer,area){
+  pending[q.code]={stage:"sending",answer}; drawAnswer(q,area);
+  try{ await api({action:"answer", code:q.code, answer}); delete pending[q.code]; toast("Sent. The team has your answer."); load(); }
+  catch(e){ pending[q.code]={stage:"confirm",answer,error:"It may not have sent ("+e.message+"). Press Refresh before trying again."}; drawAnswer(q,area); }
+}
+function renderTasks(){
+  const box=$("#tasks"); box.replaceChildren();
+  (D.tasks||[]).forEach(t=>{ const r=el("div","task"); const g=el("div","grow"); g.append(el("b",null,t.name), el("span","small",t.purpose + (t.last_run_at? " · last started "+new Date(t.last_run_at).toLocaleString([], {weekday:"short",hour:"2-digit",minute:"2-digit"}):"")));
+    const b=el("button","btn"+(t.ready?" primary":""), t.ready?"Run now":"Not set up"); b.disabled=!t.ready;
+    b.onclick=async()=>{ b.disabled=true; b.textContent="Starting…"; try{ const j=await api({action:"run", task:t.id}); toast(j.ok?t.name+" started.":"Could not start: "+j.result); }catch(e){ toast("Could not start: "+e.message); } load(); };
+    r.append(g,b); box.append(r); });
+}
+async function load(){
+  try{ const j=await api({action:"home"}); D=j.data; banner(""); render(); }
+  catch(e){ if(e.code==="not_owner"){ banner("This email isn't the owner of this network. Sign out and use the owner's email."); }
+    else if(e.code==="not_signed_in"||e.status===401){ show(false); }
+    else banner("Couldn't reach the hub just now ("+e.message+"). Press Refresh to try again."); }
+}
+function show(signedIn){ $("#loginView").hidden=signedIn; $("#appView").hidden=!signedIn; if(signedIn){ $("#hqLink").href=H.hqChat; renderProjects(); load(); } }
+$("#loginForm").addEventListener("submit", async e=>{ e.preventDefault(); const email=$("#email").value.trim(); $("#loginMsg").textContent="Sending…";
+  const { error } = await sb.auth.signInWithOtp({ email, options:{ emailRedirectTo: location.origin + location.pathname, shouldCreateUser: true } });
+  $("#loginMsg").textContent = error ? "Couldn't send the link: "+error.message : "Check your email and open the link on this device."; });
+$("#refresh").onclick=load;
+$("#signout").onclick=async()=>{ await sb.auth.signOut(); show(false); };
+sb.auth.onAuthStateChange((_ev, s)=>{ if(s) show(true); });
+sb.auth.getSession().then(({data})=>show(!!(data&&data.session)));
+setInterval(()=>{ if(!document.hidden && !$("#appView").hidden) load(); }, 60000);
+})();
+</script>
+</body>
+</html>
