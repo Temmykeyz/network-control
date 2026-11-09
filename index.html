@@ -79,14 +79,10 @@ details summary{cursor:pointer;font-size:14px;color:var(--accent);font-weight:50
 window.HUB = {
   url: "https://uamzubizuicvnpqozlla.supabase.co",
   key: "sb_publishable_ljpn2vfXf4rSdMWdi_kkwQ_md7e9hQR",
-  hqChat: "https://claude.ai/chat/9610d93c-0217-4f96-b931-e496e27a9d6b",
+  // Project tiles, in order. Chat names and links are NOT stored here: they load from your hub after you sign in.
   projects: [
-    {net:"CHESS", name:"Daily Chess", lead:["Product Manager","https://claude.ai/chat/08309133-a384-46e4-b02a-5842a8f71b7a"]},
-    {net:"MWT", name:"MWT", lead:["Website PM","https://claude.ai/chat/c19cd7c4-352e-44bf-910a-946d68afa10e"]},
-    {net:"KT", name:"Keyboard Theory", lead:["Theory site PM","https://claude.ai/chat/3ab36f1b-480b-4f0a-b18e-de40c0b9b106"]},
-    {net:"STU", name:"Study & Teaching", lead:["Study HQ","https://claude.ai/chat/a38e4c10-48c3-4f08-b6d8-95b17b742f92"]},
-    {net:"ME", name:"Me, Career & WY", lead:["Calendar + to-do manager","https://claude.ai/chat/1b0376a5-fe7e-4b8b-9725-4b0edb496580"]},
-    {net:"EPOP", name:"EPOP Choir", lead:["EPOP Ops","https://claude.ai/chat/38c6cb87-5ef3-4293-8de4-25aa4ddeab4e"]}
+    {net:"CHESS", name:"Daily Chess"}, {net:"MWT", name:"MWT"}, {net:"KT", name:"Keyboard Theory"},
+    {net:"STU", name:"Study & Teaching"}, {net:"ME", name:"Me, Career & WY"}, {net:"EPOP", name:"EPOP Choir"}
   ]
 };
 </script>
@@ -120,6 +116,11 @@ window.HUB = {
   <section>
     <h2>2. Your projects</h2>
     <p class="small" style="margin:-4px 0 12px">For project work, open the project's lead chat. It runs its team.</p>
+    <div class="card" style="margin-bottom:14px;display:grid;gap:8px">
+      <label for="findChat"><b>Find any chat</b> <span class="small">(names match your Claude sidebar)</span></label>
+      <input id="findChat" type="text" placeholder="e.g. invoice, mixing, legal, chess" autocomplete="off">
+      <div class="chats" id="findList"></div>
+    </div>
     <div class="projects" id="projects"></div>
   </section>
 
@@ -174,6 +175,21 @@ async function api(body){
 }
 function nextLine(sum){ if(!sum) return null; const m = sum.match(/NEXT:\s*([\s\S]*?)(?:\s\/\s|\n|BLOCKED:|$)/); return (m?m[1]:sum.split("\n")[0]).trim().slice(0,220); }
 
+const NETNAME = n => (H.projects.find(p=>p.net===n)||{}).name || (n==="HQ"?"Network (HQ)":n);
+function chatLink(c, showProj){
+  const a=el("a"); a.href=c.url; a.target="_blank"; a.rel="noopener";
+  const top=el("span"); top.append(el("b",null,c.name)); if(c.lead) top.append(el("span","small"," · lead")); if(c.parked) top.append(el("span","small"," · parked"));
+  a.append(top, el("small",null,(showProj?NETNAME(c.net)+" · ":"")+(c.what||""))); return a;
+}
+function allChats(){ return (D&&D.chats)||[]; }
+function renderFind(){
+  const q=($("#findChat").value||"").toLowerCase().trim(), box=$("#findList"); box.replaceChildren();
+  if(!q){ box.append(el("div","small","Type part of a chat name, a project, or a topic (for example: invoice, mixing, legal, chess).")); return; }
+  if(!D){ box.append(el("div","small","Loading your chats…")); return; }
+  const hits=allChats().filter(c=>(c.name+" "+(c.what||"")+" "+NETNAME(c.net)+" "+(c.project||"")).toLowerCase().includes(q));
+  if(!hits.length){ box.append(el("div","small","No chat matches. Try the project's lead.")); return; }
+  hits.forEach(c=>box.append(chatLink(c,true)));
+}
 function renderProjects(){
   const box=$("#projects"); box.replaceChildren();
   for(const p of H.projects){
@@ -184,7 +200,11 @@ function renderProjects(){
     const nx = a ? nextLine(a.summary) : null;
     if(nx){ const n=el("div","next"); n.append(el("span",null,"Next: "), document.createTextNode(nx)); t.append(n); }
     if(a && a.unread) t.append(el("div","small", a.unread+" unread in this project"));
-    const go=el("a","btn primary","Open lead: "+p.lead[0]); go.href=p.lead[1]; go.target="_blank"; go.rel="noopener"; t.append(go);
+    const mine=allChats().filter(c=>c.net===p.net), lead=mine.find(c=>c.lead), rest=mine.filter(c=>!c.lead);
+    if(lead){ if(lead.project) t.append(el("div","small","Claude project: "+lead.project));
+      const go=el("a","btn primary","Open lead: "+lead.name); go.href=lead.url; go.target="_blank"; go.rel="noopener"; t.append(go); }
+    if(rest.length){ const d=el("details"); d.append(el("summary",null,"All chats in "+p.name+" ("+rest.length+")")); const l=el("div","chats");
+      rest.forEach(c=>l.append(chatLink(c,false))); d.append(l); t.append(d); }
     box.append(t);
   }
 }
@@ -213,7 +233,8 @@ function render(){
     if(q.asked_by) c.append(el("div","small","Asked by: "+q.asked_by));
     const area=el("div"); c.append(area); box.append(c); drawAnswer(q,area); });
   const N=D.network||{}; $("#sTwin").textContent=N.handled_by_twins_today??"–"; $("#sUnread").textContent=N.unread_total??"–"; $("#sFlaw").textContent=N.open_flaws??"–";
-  renderProjects(); renderTasks();
+  renderProjects(); renderTasks(); renderFind();
+  const hq=allChats().find(c=>c.id==="HQ-OM"); if(hq) $("#hqLink").href=hq.url;
 }
 function drawAnswer(q,area){
   area.replaceChildren(); const p=pending[q.code];
@@ -242,11 +263,12 @@ async function load(){
     else if(e.code==="not_signed_in"||e.status===401){ show(false); }
     else banner("Couldn't reach the hub just now ("+e.message+"). Press Refresh to try again."); }
 }
-function show(signedIn){ $("#loginView").hidden=signedIn; $("#appView").hidden=!signedIn; if(signedIn){ $("#hqLink").href=H.hqChat; renderProjects(); load(); } }
+function show(signedIn){ $("#loginView").hidden=signedIn; $("#appView").hidden=!signedIn; if(signedIn){ load(); } }
 $("#loginForm").addEventListener("submit", async e=>{ e.preventDefault(); const email=$("#email").value.trim(); $("#loginMsg").textContent="Sending…";
   const { error } = await sb.auth.signInWithOtp({ email, options:{ emailRedirectTo: location.origin + location.pathname, shouldCreateUser: true } });
   $("#loginMsg").textContent = error ? "Couldn't send the link: "+error.message : "Check your email and open the link on this device."; });
 $("#refresh").onclick=load;
+$("#findChat").addEventListener("input",renderFind); renderFind();
 $("#signout").onclick=async()=>{ await sb.auth.signOut(); show(false); };
 sb.auth.onAuthStateChange((_ev, s)=>{ if(s) show(true); });
 sb.auth.getSession().then(({data})=>show(!!(data&&data.session)));
