@@ -39,6 +39,8 @@ h2{font-family:var(--display);font-weight:600;font-size:21px;margin:0 0 10px}
 .q-top b{color:var(--ink)} .q-top a{margin-left:auto;color:var(--accent);font-weight:600;text-decoration:none}
 .q-text{font-size:16px;font-weight:500}
 .q-why{color:var(--muted);font-size:14px}
+.ctx{background:var(--soft);border-radius:10px;padding:10px 14px;font-size:14px;display:grid;gap:6px}
+.ctx p{margin:0} .ctx ul{margin:0;padding-left:20px;display:grid;gap:4px}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .btn{font:inherit;font-weight:500;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:9px;padding:8px 13px;cursor:pointer;min-height:40px;text-decoration:none;display:inline-flex;align-items:center}
 .btn:hover{border-color:var(--accent)}
@@ -197,7 +199,18 @@ function render(){
   qs.forEach(q=>{ const c=el("article","q"); const top=el("div","q-top"); top.append(el("b",null,q.project||""), el("span",null,q.code));
     if(q.due){ const d=Math.round((new Date(q.due)-new Date(new Date().toDateString()))/864e5); top.append(el("span",null,d<0?"Overdue":d===0?"Due today":d===1?"Due tomorrow":"Due in "+d+" days")); }
     if(q.url){ const a=el("a",null,"Open chat ↗"); a.href=q.url; a.target="_blank"; a.rel="noopener"; top.append(a); }
-    c.append(top, el("div","q-text",q.question)); if(q.why) c.append(el("div","q-why",q.why));
+    c.append(top, el("div","q-text",q.question));
+    const cx=q.context||null;
+    if(cx && (cx.about||cx.why_now)){
+      const box=el("div","ctx");
+      if(cx.about){ const p=el("p"); p.append(el("b",null,"What this is about: "), document.createTextNode(cx.about)); box.append(p); }
+      if(cx.why_now){ const p=el("p"); p.append(el("b",null,"Why now: "), document.createTextNode(cx.why_now)); box.append(p); }
+      if(Array.isArray(cx.options)&&cx.options.length){ const ul=el("ul"); cx.options.forEach(o=>{ const li=el("li"); li.append(el("b",null,(o.option||"")+": "), document.createTextNode(o.leads_to||"")); ul.append(li); }); const p=el("p"); p.append(el("b",null,"What each answer leads to:")); box.append(p, ul); }
+      if(cx.if_unsure){ const p=el("p"); p.append(el("b",null,"If you're unsure: "), document.createTextNode(cx.if_unsure)); box.append(p); }
+      c.append(box);
+      if(q.why){ const d=el("details"); d.append(el("summary",null,"The team's own note"), el("div","q-why",q.why)); c.append(d); }
+    } else if(q.why){ c.append(el("div","q-why",q.why)); c.append(el("div","small","More context is being written for this question; it appears within a few minutes.")); }
+    if(q.asked_by) c.append(el("div","small","Asked by: "+q.asked_by));
     const area=el("div"); c.append(area); box.append(c); drawAnswer(q,area); });
   const N=D.network||{}; $("#sTwin").textContent=N.handled_by_twins_today??"–"; $("#sUnread").textContent=N.unread_total??"–"; $("#sFlaw").textContent=N.open_flaws??"–";
   renderProjects(); renderTasks();
